@@ -19,7 +19,7 @@ Input audio data treated as following:
 6. Represent speech regions as intervals of time
 
 ## How To
-To create object:
+Create object:
 
 1. import vad module
 2. create instance of class VoiceActivityDetector with full path to wave file
