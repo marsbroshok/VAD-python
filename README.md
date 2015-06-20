@@ -3,12 +3,14 @@ Pyhton code to apply voice activity detector to wave file.
 Voice activity detector based on ration between energy in speech band and total energy.
 
 ## Requrements:
+
 * numpy
 * scipy
 * matplotlib
 
 ## Basic Idea
 Input audio data treated as following:
+
 1. Convert stereo to mono
 2. Move a window of 20ms along the audio data
 3. Calculate ration between energy of speech band and total energy for window
@@ -18,6 +20,7 @@ Input audio data treated as following:
 
 ## How To
 To create object:
+
 1. import vad module
 2. create instance of class VoiceActivityDetector with full path to wave file
 3. run method to detect speech regions
