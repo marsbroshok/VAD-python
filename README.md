@@ -2,7 +2,7 @@
 Pyhton code to apply voice activity detector to wave file.
 Voice activity detector based on ration between energy in speech band and total energy.
 
-## Requrements:
+## Requrements
 
 * numpy
 * scipy
