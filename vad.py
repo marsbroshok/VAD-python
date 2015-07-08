@@ -94,20 +94,20 @@ class VoiceActivityDetector():
         """
         speech_time = []
         is_speech = 0
-        it = np.nditer(detected_windows, flags=['f_index'])
-        while not it.finished:
-            speech_label = {}
-            if (it[0]==1.0 and is_speech==0): 
+        for window in detected_windows:
+            if (window[1]==1.0 and is_speech==0): 
                 is_speech = 1
-                speech_time_start = it.index * self.sample_overlap
-                speech_label['speech_starts'] = speech_time_start
-                speech_time.append(speech_label)
-            if (it[0]==0.0 and is_speech==1):
+                speech_label = {}
+                speech_time_start = window[0] / self.rate
+                speech_label['speech_begin'] = speech_time_start
+                print window[0], speech_time_start
+                #speech_time.append(speech_label)
+            if (window[1]==0.0 and is_speech==1):
                 is_speech = 0
-                speech_time_end = it.index * self.sample_overlap
-                speech_label['speech_ends'] = speech_time_end
+                speech_time_end = window[0] / self.rate
+                speech_label['speech_end'] = speech_time_end
                 speech_time.append(speech_label)
-            it.iternext()
+                print window[0], speech_time_end
         return speech_time
       
     def plot_detected_speech_regions(self):
