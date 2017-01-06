@@ -50,7 +50,8 @@ class VoiceActivityDetector():
     def _connect_energy_with_frequencies(self, data_freq, data_energy):
         energy_freq = {}
         for (i, freq) in enumerate(data_freq):
-                energy_freq[abs(freq)] = data_energy[i]
+            if abs(freq) not in energy_freq:
+                energy_freq[abs(freq)] = data_energy[i] * 2
         return energy_freq
     
     def _calculate_normalized_energy(self, data):
