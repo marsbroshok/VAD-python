@@ -38,3 +38,6 @@ filename = '/Users/user/wav-sample.wav'
 v = VoiceActivityDetector(filename)
 v.plot_detected_speech_regions()
 ```
+
+-------
+Alexander USOLTSEV 2015 (c) [MIT License](https://opensource.org/licenses/MIT)
