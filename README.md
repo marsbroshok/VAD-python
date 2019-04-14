@@ -7,6 +7,7 @@ Voice activity detector based on ration between energy in speech band and total 
 * numpy
 * scipy
 * matplotlib
+* tkinter (sudo apt install python3-tk)
 
 ## Basic Idea
 Input audio data treated as following:
