@@ -1,3 +1,9 @@
+# IMPORTANT NOTE
+**I'm not working on this project anymore**.
+I advise everyone curious about voice detection to have a look at some more modern approaches using deep learning, like:
+ - https://www.mathworks.com/help/audio/examples/voice-activity-detection-in-noise-using-deep-learning.html
+ - https://medium.com/vivolab/vivovad-a-voice-activity-detection-tool-based-on-recurrent-neural-networks-32356526321c
+ - https://github.com/hcmlab/vadnet
 # Voice Activity Detector
 Python code to apply voice activity detector to wave file.
 Voice activity detector based on ration between energy in speech band and total energy.
