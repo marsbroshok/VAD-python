@@ -17,5 +17,6 @@ if __name__ == "__main__":
     v = VoiceActivityDetector(args.inputfile)
     raw_detection = v.detect_speech()
     speech_labels = v.convert_windows_to_readible_labels(raw_detection)
+    print(speech_labels)
     
     save_to_file(speech_labels, args.outputfile)
