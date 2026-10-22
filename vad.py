@@ -6,6 +6,8 @@ import wave
 
 import numpy as np
 
+from vad_streaming import StreamingVAD
+
 try:
     import scipy.io.wavfile as wf
 except ImportError:  # pragma: no cover

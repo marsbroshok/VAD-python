@@ -51,7 +51,7 @@ dev = [
 vad-python = "detectVoiceInWave:main"
 
 [tool.setuptools]
-py-modules = ["vad", "detectVoiceInWave"]
+py-modules = ["vad", "vad_streaming", "detectVoiceInWave"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -59,7 +59,7 @@ addopts = "-q --strict-markers"
 
 [tool.coverage.run]
 branch = true
-source = ["vad", "detectVoiceInWave"]
+source = ["vad", "vad_streaming", "detectVoiceInWave"]
 
 [tool.coverage.report]
 show_missing = true
