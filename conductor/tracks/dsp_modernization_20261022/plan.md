@@ -20,11 +20,11 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 82005af
 
 ## Phase 2: Silence Trimming Helpers & Real-Time `StreamingVAD`
-- [~] Task: Implement `extract_speech_segments()` and `strip_silence()` audio helpers
-  - [ ] Write Failing Tests (Red Phase): Unit tests for extracting speech numpy segments, stripping silence with configurable padding, and saving trimmed WAV output to disk
-  - [ ] Implement to Pass Tests (Green Phase): Add `extract_speech_segments` and `strip_silence` methods to `VoiceActivityDetector`
-  - [ ] Refactor & Verify Coverage
-- [ ] Task: Implement `StreamingVAD` class in `vad_streaming.py` for real-time frame-by-frame detection
+- [x] Task: Implement `extract_speech_segments()` and `strip_silence()` audio helpers 441f436
+  - [x] Write Failing Tests (Red Phase): Unit tests for extracting speech numpy segments, stripping silence with configurable padding, and saving trimmed WAV output to disk
+  - [x] Implement to Pass Tests (Green Phase): Add `extract_speech_segments` and `strip_silence` methods to `VoiceActivityDetector`
+  - [x] Refactor & Verify Coverage
+- [~] Task: Implement `StreamingVAD` class in `vad_streaming.py` for real-time frame-by-frame detection
   - [ ] Write Failing Tests (Red Phase): Unit and property tests feeding chunked audio (10ms/20ms/arbitrary chunk sizes) into `StreamingVAD`, verifying state transitions (`is_speech`, speech start/end events) and silence hangover smoothing
   - [ ] Implement to Pass Tests (Green Phase): Create `vad_streaming.py` with `StreamingVAD` class and export it from `vad.py`
   - [ ] Refactor & Verify Coverage
