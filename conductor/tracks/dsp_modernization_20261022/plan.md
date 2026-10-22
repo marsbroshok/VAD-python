@@ -30,13 +30,20 @@
   - [x] Refactor & Verify Coverage
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 6b14568
 
-## Phase 3: CLI Modernization, Documentation & Final Quality Gate
+## Phase 3: CLI Modernization, Documentation & Final Quality Gate [checkpoint: c7dd173]
 - [x] Task: Modernize `detectVoiceInWave.py` CLI and console script entrypoint 3d1b13f
   - [x] Write Failing Tests (Red Phase): CLI integration tests testing positional `INPUTWAVE OUTPUTFILE` args, `--threshold`, `--speech-window`, `--output-wav`, and error handling on missing files
   - [x] Implement to Pass Tests (Green Phase): Enhance `detectVoiceInWave.py` with `main()` entrypoint and new optional CLI flags while keeping full backward compatibility
   - [x] Refactor & Verify Coverage
-- [~] Task: Revitalize `README.md` and synchronize `test.json`
-  - [ ] Write Failing Tests (Red Phase): Documentation & interface parity test verifying CLI `--help` flags and `README.md` code examples execute cleanly
-  - [ ] Implement to Pass Tests (Green Phase): Rewrite `README.md` (removing shutdown notice, adding quickstart, streaming & silence-trimming examples, DSP explanation, and realistic comparison) and update `test.json`
-  - [ ] Refactor & Verify Coverage
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Revitalize `README.md` and synchronize `test.json` c7dd173
+  - [x] Write Failing Tests (Red Phase): Documentation & interface parity test verifying CLI `--help` flags and `README.md` code examples execute cleanly
+  - [x] Implement to Pass Tests (Green Phase): Rewrite `README.md` (removing shutdown notice, adding quickstart, streaming & silence-trimming examples, DSP explanation, and realistic comparison) and update `test.json`
+  - [x] Refactor & Verify Coverage
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) c7dd173
+
+## Assumptions & Domain Invariants Ledger
+- **PCM Normalization Before Mono Downmix**: Unsigned 8-bit (`uint8`, centered at `128`), signed 16-bit (`int16`, scaled by `32768.0`), and signed 32-bit (`int32`, scaled by `2147483648.0`) inputs are converted to `float64` in `[-1.0, 1.0]` prior to channel averaging so stereo/multi-channel downmixing never overflows 16-bit integer bounds and RMS thresholds remain bit-depth invariant.
+- **Per-Frame DC Mean Removal**: Each frame's DC mean is subtracted before applying the Hann window (`np.hanning`) so residual DC offsets do not leak energy into low-frequency FFT bins or inflate frame RMS on constant DC signals.
+- **Capped Adaptive RMS Noise Floor**: The effective RMS gate is `max(energy_threshold, min(2.0 * percentile_10(frame_rms), 0.25 * max(frame_rms)))` when `energy_threshold > 0`, ensuring quiet mid-band background hum is rejected in dynamic recordings while continuous speech or constant-amplitude test tones are never suppressed.
+- **Trailing Speech Closure**: Speech segments still active at the final window close at `len(self.data)` (or `last_win_start + step_samples` for synthetic window arrays exceeding `len(self.data)`).
+- **Padding Merge on Silence Trimming**: When `pad_ms > 0` in `extract_speech_segments()` or `strip_silence()`, overlapping or adjacent padded intervals are merged so audio samples are never duplicated.
