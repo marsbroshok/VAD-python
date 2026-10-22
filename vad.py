@@ -281,6 +281,66 @@ class VoiceActivityDetector:
         detected_windows = self.detect_speech()
         return self.convert_windows_to_readable_labels(detected_windows)
 
+    def extract_speech_segments(self, pad_ms: float = 0.0) -> list[np.ndarray]:
+        """Extract audio waveform slices corresponding to detected speech intervals.
+
+        Args:
+            pad_ms: Optional padding in milliseconds to include before and after
+                each speech interval. Overlapping padded intervals are merged.
+
+        Returns:
+            List of 1D float64 numpy arrays for each speech segment.
+        """
+        intervals = self.detect_intervals()
+        if not intervals:
+            return []
+
+        pad_samples = max(0, int(round(self.rate * (float(pad_ms) / 1000.0))))
+        n_samples = len(self.data)
+        merged_ranges: list[list[int]] = []
+
+        for item in intervals:
+            start_idx = max(0, int(item["start_sample"]) - pad_samples)
+            end_idx = min(n_samples, int(item["end_sample"]) + pad_samples)
+            if merged_ranges and start_idx <= merged_ranges[-1][1]:
+                merged_ranges[-1][1] = max(merged_ranges[-1][1], end_idx)
+            else:
+                merged_ranges.append([start_idx, end_idx])
+
+        return [self.data[s:e].copy() for s, e in merged_ranges]
+
+    def strip_silence(
+        self,
+        output_path: str | Path | None = None,
+        pad_ms: float = 20.0,
+    ) -> np.ndarray:
+        """Concatenate detected speech segments and optionally write a cleaned WAV file.
+
+        Args:
+            output_path: Optional file path to write 16-bit PCM mono WAV output.
+            pad_ms: Padding in milliseconds retained around each speech segment.
+
+        Returns:
+            Concatenated 1D float64 numpy array containing only speech segments.
+        """
+        segments = self.extract_speech_segments(pad_ms=pad_ms)
+        if segments:
+            trimmed = np.concatenate(segments)
+        else:
+            trimmed = np.array([], dtype=np.float64)
+
+        if output_path is not None:
+            pcm_int16 = np.clip(np.round(trimmed * 32767.0), -32768, 32767).astype(
+                "<i2"
+            )
+            with wave.open(str(output_path), "wb") as wav_out:
+                wav_out.setnchannels(1)
+                wav_out.setsampwidth(2)
+                wav_out.setframerate(self.rate)
+                wav_out.writeframes(pcm_int16.tobytes())
+
+        return trimmed
+
     def plot_detected_speech_regions(self) -> VoiceActivityDetector:
         """Perform speech detection and plot the waveform with speech regions overlaid."""
         plt = importlib.import_module("matplotlib.pyplot")
