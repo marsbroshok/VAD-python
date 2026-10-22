@@ -9,11 +9,11 @@
   - [x] Write Failing Tests (Red Phase): Unit and Hypothesis property tests for stereo `int16` max-amplitude overflow (`[32767, 32767]`), `uint8` DC centering, multi-channel arrays, and `np.ndarray` / `bytes` / `Path` inputs
   - [x] Implement to Pass Tests (Green Phase): Refactor `_read_wav` and `_convert_to_mono` to support file paths (with `wave` fallback), `np.ndarray`, and `bytes`, converting safely without integer overflow
   - [x] Refactor & Verify Coverage
-- [~] Task: Upgrade DSP engine with Hann windowing, vectorized `rfft`, zero-division guard, and RMS noise-floor gate
-  - [ ] Write Failing Tests (Red Phase): Tests for digital silence (all zeros / constant DC producing `0.0` ratio with zero `RuntimeWarning`s), quiet mid-band noise rejection via RMS gate, 300–3000 Hz synthetic sine wave detection, and performance benchmark (<50ms per minute of audio)
-  - [ ] Implement to Pass Tests (Green Phase): Implement Hann windowing, vectorized `rfft` band-energy ratio, safe denominator guard, and RMS noise-floor gating in `VoiceActivityDetector`
-  - [ ] Refactor & Verify Coverage
-- [ ] Task: Fix median filter step calculation, short-clip safety, end-of-audio interval closure, and lazy plotting
+- [x] Task: Upgrade DSP engine with Hann windowing, vectorized `rfft`, zero-division guard, and RMS noise-floor gate d450bc5
+  - [x] Write Failing Tests (Red Phase): Tests for digital silence (all zeros / constant DC producing `0.0` ratio with zero `RuntimeWarning`s), quiet mid-band noise rejection via RMS gate, 300–3000 Hz synthetic sine wave detection, and performance benchmark (<50ms per minute of audio)
+  - [x] Implement to Pass Tests (Green Phase): Implement Hann windowing, vectorized `rfft` band-energy ratio, safe denominator guard, and RMS noise-floor gating in `VoiceActivityDetector`
+  - [x] Refactor & Verify Coverage
+- [~] Task: Fix median filter step calculation, short-clip safety, end-of-audio interval closure, and lazy plotting
   - [ ] Write Failing Tests (Red Phase): Tests for speech continuing until the final sample of the audio (Issues #4 & #6), audio shorter than `speech_window`, sample index inclusion (`start_sample`, `end_sample`), `convert_windows_to_readable_labels` alias, and headless import without `tkinter` + mocked `plot_detected_speech_regions()`
   - [ ] Implement to Pass Tests (Green Phase): Fix `_smooth_speech_detection`, `_median_filter`, `convert_windows_to_readible_labels`, `detect_intervals`, and lazy-loaded `plot_detected_speech_regions`
   - [ ] Refactor & Verify Coverage
