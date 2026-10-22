@@ -131,46 +131,65 @@ class VoiceActivityDetector:
             self.channels = 1
         return self
     
-    def _calculate_frequencies(self, audio_data):
-        data_freq = np.fft.fftfreq(len(audio_data),1.0/self.rate)
-        data_freq = data_freq[1:]
-        return data_freq    
-    
-    def _calculate_amplitude(self, audio_data):
-        data_ampl = np.abs(np.fft.fft(audio_data))
-        data_ampl = data_ampl[1:]
-        return data_ampl
-        
-    def _calculate_energy(self, data):
+    def _calculate_frequencies(self, audio_data: np.ndarray) -> np.ndarray:
+        """Calculate positive FFT frequencies (excluding DC bin 0) for a frame."""
+        if len(audio_data) <= 1:
+            return np.array([], dtype=np.float64)
+        data_freq = np.fft.rfftfreq(len(audio_data), 1.0 / self.rate)
+        return data_freq[1:]
+
+    def _calculate_amplitude(self, audio_data: np.ndarray) -> np.ndarray:
+        """Apply DC removal and Hann windowing, then return positive rFFT magnitudes."""
+        arr = np.asarray(audio_data, dtype=np.float64)
+        if len(arr) <= 1:
+            return np.array([], dtype=np.float64)
+        zero_mean = arr - np.mean(arr)
+        windowed = zero_mean * np.hanning(len(arr))
+        data_ampl = np.abs(np.fft.rfft(windowed))
+        return data_ampl[1:]
+
+    def _calculate_energy(self, data: np.ndarray) -> np.ndarray:
+        """Compute spectral power (squared amplitude) for each positive frequency bin."""
         data_amplitude = self._calculate_amplitude(data)
-        data_energy = data_amplitude ** 2
-        return data_energy
-        
-    def _znormalize_energy(self, data_energy):
-        energy_mean = np.mean(data_energy)
-        energy_std = np.std(data_energy)
-        energy_znorm = (data_energy - energy_mean) / energy_std
-        return energy_znorm
-    
-    def _connect_energy_with_frequencies(self, data_freq, data_energy):
-        energy_freq = {}
-        for (i, freq) in enumerate(data_freq):
-            if abs(freq) not in energy_freq:
-                energy_freq[abs(freq)] = data_energy[i] * 2
+        return data_amplitude**2
+
+    def _znormalize_energy(self, data_energy: np.ndarray) -> np.ndarray:
+        """Z-normalize an energy vector, safely returning zeros when std is ~0."""
+        arr = np.asarray(data_energy, dtype=np.float64)
+        energy_mean = np.mean(arr)
+        energy_std = np.std(arr)
+        if energy_std <= 1e-12:
+            return np.zeros_like(arr, dtype=np.float64)
+        return (arr - energy_mean) / energy_std
+
+    def _connect_energy_with_frequencies(
+        self, data_freq: np.ndarray, data_energy: np.ndarray
+    ) -> dict[float, float]:
+        """Map positive frequency bins (Hz) to their corresponding spectral energy."""
+        energy_freq: dict[float, float] = {}
+        for i, freq in enumerate(data_freq):
+            key = float(abs(freq))
+            if key not in energy_freq:
+                energy_freq[key] = float(data_energy[i] * 2.0)
         return energy_freq
-    
-    def _calculate_normalized_energy(self, data):
+
+    def _calculate_normalized_energy(self, data: np.ndarray) -> dict[float, float]:
+        """Compute frequency-to-energy mapping for a single audio frame."""
         data_freq = self._calculate_frequencies(data)
         data_energy = self._calculate_energy(data)
-        #data_energy = self._znormalize_energy(data_energy) #znorm brings worse results
-        energy_freq = self._connect_energy_with_frequencies(data_freq, data_energy)
-        return energy_freq
-    
-    def _sum_energy_in_band(self,energy_frequencies, start_band, end_band):
-        sum_energy = 0
-        for f in energy_frequencies.keys():
-            if start_band<f<end_band:
-                sum_energy += energy_frequencies[f]
+        return self._connect_energy_with_frequencies(data_freq, data_energy)
+
+    def _sum_energy_in_band(
+        self,
+        energy_frequencies: dict[float, float],
+        start_band: int | float,
+        end_band: int | float,
+    ) -> float:
+        """Sum spectral energy strictly within (start_band, end_band) Hz."""
+        sum_energy = 0.0
+        for f, val in energy_frequencies.items():
+            if start_band < f < end_band:
+                sum_energy += float(val)
         return sum_energy
     
     def _median_filter (self, x, k):
@@ -232,31 +251,63 @@ class VoiceActivityDetector:
         plt.show()
         return self
        
-    def detect_speech(self):
-        """ Detects speech regions based on ratio between speech band energy
-        and total energy.
-        Output is array of window numbers and speech flags (1 - speech, 0 - nonspeech).
+    def detect_speech(self) -> np.ndarray:
+        """Detect speech windows using vectorized Hann-windowed rFFT and RMS gating.
+
+        Returns:
+            2D numpy array of shape (num_windows, 2) where column 0 is the window
+            start sample index and column 1 is the smoothed binary speech flag
+            (1.0 for speech, 0.0 for non-speech).
         """
-        detected_windows = np.array([])
-        sample_window = int(self.rate * self.sample_window)
-        sample_overlap = int(self.rate * self.sample_overlap)
         data = self.data
-        sample_start = 0
-        start_band = self.speech_start_band
-        end_band = self.speech_end_band
-        while (sample_start < (len(data) - sample_window)):
-            sample_end = sample_start + sample_window
-            if sample_end>=len(data): sample_end = len(data)-1
-            data_window = data[sample_start:sample_end]
-            energy_freq = self._calculate_normalized_energy(data_window)
-            sum_voice_energy = self._sum_energy_in_band(energy_freq, start_band, end_band)
-            sum_full_energy = sum(energy_freq.values())
-            speech_ratio = sum_voice_energy/sum_full_energy
-            # Hipothesis is that when there is a speech sequence we have ratio of energies more than Threshold
-            speech_ratio = speech_ratio>self.speech_energy_threshold
-            detected_windows = np.append(detected_windows,[sample_start, speech_ratio])
-            sample_start += sample_overlap
-        detected_windows = detected_windows.reshape(int(len(detected_windows)/2),2)
-        detected_windows[:,1] = self._smooth_speech_detection(detected_windows)
+        n_samples = len(data)
+        if n_samples == 0:
+            return np.empty((0, 2), dtype=np.float64)
+
+        sample_window = max(1, int(self.rate * self.sample_window))
+        sample_overlap = max(1, int(self.rate * self.sample_overlap))
+
+        if n_samples <= sample_window:
+            sample_starts = np.array([0], dtype=np.float64)
+            frames = data[np.newaxis, :]
+        else:
+            all_windows = np.lib.stride_tricks.sliding_window_view(data, sample_window)
+            frames = all_windows[::sample_overlap]
+            sample_starts = (
+                np.arange(len(frames), dtype=np.float64) * float(sample_overlap)
+            )
+
+        frame_len = frames.shape[1]
+        frames_ac = frames - np.mean(frames, axis=1, keepdims=True)
+        frame_rms = np.sqrt(np.mean(frames_ac**2, axis=1))
+
+        if frame_len <= 1:
+            speech_ratio = np.zeros(len(frames), dtype=np.float64)
+        else:
+            hann = np.hanning(frame_len)
+            spectrum = np.abs(np.fft.rfft(frames_ac * hann, axis=1))[:, 1:] ** 2
+            freqs = np.fft.rfftfreq(frame_len, 1.0 / self.rate)[1:]
+            band_mask = (freqs > self.speech_start_band) & (
+                freqs < self.speech_end_band
+            )
+            voice_energy = np.sum(spectrum[:, band_mask], axis=1)
+            full_energy = np.sum(spectrum, axis=1)
+            safe_denom = np.where(full_energy > 1e-12, full_energy, 1.0)
+            speech_ratio = np.where(full_energy > 1e-12, voice_energy / safe_denom, 0.0)
+
+        if self.energy_threshold > 0.0 and len(frame_rms) > 0:
+            adaptive_floor = min(
+                float(np.percentile(frame_rms, 10)) * 2.0,
+                float(np.max(frame_rms)) * 0.25,
+            )
+            rms_gate = max(self.energy_threshold, adaptive_floor)
+            is_speech = (
+                (speech_ratio > self.speech_energy_threshold) & (frame_rms > rms_gate)
+            ).astype(np.float64)
+        else:
+            is_speech = (speech_ratio > self.speech_energy_threshold).astype(np.float64)
+
+        detected_windows = np.column_stack((sample_starts, is_speech))
+        detected_windows[:, 1] = self._smooth_speech_detection(detected_windows)
         return detected_windows
  
