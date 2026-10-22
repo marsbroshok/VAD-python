@@ -19,19 +19,19 @@
   - [x] Refactor & Verify Coverage
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 82005af
 
-## Phase 2: Silence Trimming Helpers & Real-Time `StreamingVAD`
+## Phase 2: Silence Trimming Helpers & Real-Time `StreamingVAD` [checkpoint: 6b14568]
 - [x] Task: Implement `extract_speech_segments()` and `strip_silence()` audio helpers 441f436
   - [x] Write Failing Tests (Red Phase): Unit tests for extracting speech numpy segments, stripping silence with configurable padding, and saving trimmed WAV output to disk
   - [x] Implement to Pass Tests (Green Phase): Add `extract_speech_segments` and `strip_silence` methods to `VoiceActivityDetector`
   - [x] Refactor & Verify Coverage
-- [~] Task: Implement `StreamingVAD` class in `vad_streaming.py` for real-time frame-by-frame detection
-  - [ ] Write Failing Tests (Red Phase): Unit and property tests feeding chunked audio (10ms/20ms/arbitrary chunk sizes) into `StreamingVAD`, verifying state transitions (`is_speech`, speech start/end events) and silence hangover smoothing
-  - [ ] Implement to Pass Tests (Green Phase): Create `vad_streaming.py` with `StreamingVAD` class and export it from `vad.py`
-  - [ ] Refactor & Verify Coverage
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Implement `StreamingVAD` class in `vad_streaming.py` for real-time frame-by-frame detection 6b14568
+  - [x] Write Failing Tests (Red Phase): Unit and property tests feeding chunked audio (10ms/20ms/arbitrary chunk sizes) into `StreamingVAD`, verifying state transitions (`is_speech`, speech start/end events) and silence hangover smoothing
+  - [x] Implement to Pass Tests (Green Phase): Create `vad_streaming.py` with `StreamingVAD` class and export it from `vad.py`
+  - [x] Refactor & Verify Coverage
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 6b14568
 
 ## Phase 3: CLI Modernization, Documentation & Final Quality Gate
-- [ ] Task: Modernize `detectVoiceInWave.py` CLI and console script entrypoint
+- [~] Task: Modernize `detectVoiceInWave.py` CLI and console script entrypoint
   - [ ] Write Failing Tests (Red Phase): CLI integration tests testing positional `INPUTWAVE OUTPUTFILE` args, `--threshold`, `--speech-window`, `--output-wav`, and error handling on missing files
   - [ ] Implement to Pass Tests (Green Phase): Enhance `detectVoiceInWave.py` with `main()` entrypoint and new optional CLI flags while keeping full backward compatibility
   - [ ] Refactor & Verify Coverage
