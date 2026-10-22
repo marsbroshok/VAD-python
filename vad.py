@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 import wave
 
@@ -192,62 +193,111 @@ class VoiceActivityDetector:
                 sum_energy += float(val)
         return sum_energy
     
-    def _median_filter (self, x, k):
-        assert k % 2 == 1, "Median filter length must be odd."
-        assert x.ndim == 1, "Input must be one-dimensional."
+    def _median_filter(self, x: np.ndarray, k: int) -> np.ndarray:
+        """Apply a 1D edge-padded median filter of odd kernel length k."""
+        if k % 2 != 1:
+            raise ValueError("Median filter length must be odd.")
+        if x.ndim != 1:
+            raise ValueError("Input must be one-dimensional.")
+        if len(x) == 0 or k <= 1:
+            return x.astype(np.float64, copy=True)
         k2 = (k - 1) // 2
-        y = np.zeros ((len (x), k), dtype=x.dtype)
-        y[:,k2] = x
-        for i in range (k2):
-            j = k2 - i
-            y[j:,i] = x[:-j]
-            y[:j,i] = x[0]
-            y[:-j,-(i+1)] = x[j:]
-            y[-j:,-(i+1)] = x[-1]
-        return np.median (y, axis=1)
-        
-    def _smooth_speech_detection(self, detected_windows):
-        median_window=int(self.speech_window/self.sample_window)
-        if median_window%2==0: median_window=median_window-1
-        median_energy = self._median_filter(detected_windows[:,1], median_window)
-        return median_energy
-        
-    def convert_windows_to_readible_labels(self, detected_windows):
-        """ Takes as input array of window numbers and speech flags from speech
-        detection and convert speech flags to time intervals of speech.
-        Output is array of dictionaries with speech intervals.
+        padded = np.pad(x.astype(np.float64, copy=False), k2, mode="edge")
+        windows = np.lib.stride_tricks.sliding_window_view(padded, k)
+        return np.median(windows, axis=1)
+
+    def _smooth_speech_detection(self, detected_windows: np.ndarray) -> np.ndarray:
+        """Smooth binary frame classifications using a median filter over speech_window."""
+        if len(detected_windows) == 0:
+            return np.array([], dtype=np.float64)
+        median_window = max(1, int(self.speech_window / self.sample_overlap))
+        median_window = min(median_window, len(detected_windows))
+        if median_window % 2 == 0:
+            median_window = max(1, median_window - 1)
+        return self._median_filter(detected_windows[:, 1], median_window)
+
+    def convert_windows_to_readible_labels(
+        self, detected_windows: np.ndarray
+    ) -> list[dict[str, float | int]]:
+        """Convert frame-level [sample_start, is_speech] rows into speech intervals.
+
+        Preserves the historical method spelling ('readible') for backward
+        compatibility while closing trailing speech segments and including both
+        seconds ('speech_begin', 'speech_end') and sample indices
+        ('start_sample', 'end_sample').
         """
-        speech_time = []
+        speech_time: list[dict[str, float | int]] = []
+        if len(detected_windows) == 0:
+            return speech_time
+
         is_speech = 0
+        start_sample = 0
+        speech_begin = 0.0
+
         for window in detected_windows:
-            if (window[1]==1.0 and is_speech==0): 
+            win_sample = int(window[0])
+            flag = float(window[1])
+            if flag == 1.0 and is_speech == 0:
                 is_speech = 1
-                speech_label = {}
-                speech_time_start = window[0] / self.rate
-                speech_label['speech_begin'] = speech_time_start
-                print(window[0], speech_time_start)
-                #speech_time.append(speech_label)
-            if (window[1]==0.0 and is_speech==1):
+                start_sample = win_sample
+                speech_begin = float(start_sample / self.rate)
+            elif flag == 0.0 and is_speech == 1:
                 is_speech = 0
-                speech_time_end = window[0] / self.rate
-                speech_label['speech_end'] = speech_time_end
-                speech_time.append(speech_label)
-                print(window[0], speech_time_end)
+                end_sample = win_sample
+                speech_end = float(end_sample / self.rate)
+                speech_time.append(
+                    {
+                        "speech_begin": speech_begin,
+                        "speech_end": speech_end,
+                        "start_sample": start_sample,
+                        "end_sample": end_sample,
+                    }
+                )
+
+        if is_speech == 1:
+            last_win_start = int(detected_windows[-1, 0])
+            step_samples = max(1, int(self.rate * self.sample_overlap))
+            end_sample = max(len(self.data), last_win_start + step_samples)
+            speech_end = float(end_sample / self.rate)
+            speech_time.append(
+                {
+                    "speech_begin": speech_begin,
+                    "speech_end": speech_end,
+                    "start_sample": start_sample,
+                    "end_sample": end_sample,
+                }
+            )
+
         return speech_time
-      
-    def plot_detected_speech_regions(self):
-        """ Performs speech detection and plot original signal and speech regions.
-        """
+
+    def convert_windows_to_readable_labels(
+        self, detected_windows: np.ndarray
+    ) -> list[dict[str, float | int]]:
+        """Convert frame-level [sample_start, is_speech] rows into speech intervals."""
+        return self.convert_windows_to_readible_labels(detected_windows)
+
+    def detect_intervals(self) -> list[dict[str, float | int]]:
+        """Detect speech and return a list of interval dictionaries."""
+        detected_windows = self.detect_speech()
+        return self.convert_windows_to_readable_labels(detected_windows)
+
+    def plot_detected_speech_regions(self) -> VoiceActivityDetector:
+        """Perform speech detection and plot the waveform with speech regions overlaid."""
+        plt = importlib.import_module("matplotlib.pyplot")
         data = self.data
         detected_windows = self.detect_speech()
-        data_speech = np.zeros(len(data))
-        it = np.nditer(detected_windows[:,0], flags=['f_index'])
-        while not it.finished:
-            data_speech[int(it[0])] = data[int(it[0])] * detected_windows[it.index,1]
-            it.iternext()
+        data_speech = np.zeros(len(data), dtype=np.float64)
+        sample_window = max(1, int(self.rate * self.sample_window))
+
+        for window in detected_windows:
+            if float(window[1]) == 1.0:
+                start_idx = int(window[0])
+                end_idx = min(len(data), start_idx + sample_window)
+                data_speech[start_idx:end_idx] = data[start_idx:end_idx]
+
         plt.figure()
-        plt.plot(data_speech)
         plt.plot(data)
+        plt.plot(data_speech)
         plt.show()
         return self
        

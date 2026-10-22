@@ -103,6 +103,10 @@ def test_white_box_helper_methods() -> None:
     # Edge cases: empty, 1-sample, and disabled RMS gate (energy_threshold=0.0)
     assert len(detector._calculate_frequencies(np.array([0.1]))) == 0
     assert len(detector._calculate_amplitude(np.array([0.1]))) == 0
+    dup_freq = detector._connect_energy_with_frequencies(
+        np.array([100.0, -100.0]), np.array([2.0, 2.0])
+    )
+    assert dup_freq == {100.0: 4.0}
 
     det_empty = VoiceActivityDetector(np.array([], dtype=np.float64), sample_rate=sr)
     assert det_empty.detect_speech().shape == (0, 2)
