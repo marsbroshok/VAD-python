@@ -1,11 +1,11 @@
 # Implementation Plan: Core DSP Modernization, Ergonomic APIs & Packaging (`dsp_modernization_20261022`)
 
 ## Phase 1: Project Scaffolding, Core DSP Bug Fixes & "10 Lines of DSP" Vectorization
-- [ ] Task: Configure `pyproject.toml`, `.gitignore`, and test harness (`pytest`, `pytest-cov`, `hypothesis`)
-  - [ ] Write initial smoke test verifying test runner and `wav-sample.wav` fixture loading
-  - [ ] Create `pyproject.toml` and update `.gitignore` for Python build/test artifacts
-  - [ ] Verify `pytest` execution and baseline coverage report
-- [ ] Task: Fix audio loading, `uint8`/`int16` normalization, and stereo-to-mono integer overflow (`_read_wav`, `_convert_to_mono`)
+- [x] Task: Configure `pyproject.toml`, `.gitignore`, and test harness (`pytest`, `pytest-cov`, `hypothesis`) 25cd536
+  - [x] Write initial smoke test verifying test runner and `wav-sample.wav` fixture loading
+  - [x] Create `pyproject.toml` and update `.gitignore` for Python build/test artifacts
+  - [x] Verify `pytest` execution and baseline coverage report
+- [~] Task: Fix audio loading, `uint8`/`int16` normalization, and stereo-to-mono integer overflow (`_read_wav`, `_convert_to_mono`)
   - [ ] Write Failing Tests (Red Phase): Unit and Hypothesis property tests for stereo `int16` max-amplitude overflow (`[32767, 32767]`), `uint8` DC centering, multi-channel arrays, and `np.ndarray` / `bytes` / `Path` inputs
   - [ ] Implement to Pass Tests (Green Phase): Refactor `_read_wav` and `_convert_to_mono` to support file paths (with `wave` fallback), `np.ndarray`, and `bytes`, converting safely without integer overflow
   - [ ] Refactor & Verify Coverage
