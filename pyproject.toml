@@ -12,7 +12,19 @@ license = { text = "MIT" }
 authors = [
     { name = "Alexander Usoltsev" }
 ]
-keywords = ["vad", "voice-activity-detection", "dsp", "speech", "audio", "spectral"]
+keywords = [
+    "vad",
+    "voice-activity-detection",
+    "dsp",
+    "speech",
+    "audio",
+    "spectral",
+    "whisper-preprocessing",
+    "silence-removal",
+    "streaming-vad",
+    "audio-gate",
+    "voice-agent",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

@@ -58,3 +58,21 @@ def test_golden_test_json_matches_wav_sample() -> None:
 
     actual_json = json.loads((root / "test.json").read_text(encoding="utf-8"))
     assert actual_json == expected_intervals
+
+
+def test_agent_discovery_files_exist_and_expose_api() -> None:
+    """llms.txt and AGENTS.md exist and document modern VAD APIs cleanly."""
+    root = Path(__file__).resolve().parent.parent
+    llms_txt = (root / "llms.txt").read_text(encoding="utf-8")
+    agents_md = (root / "AGENTS.md").read_text(encoding="utf-8")
+
+    for doc in (llms_txt, agents_md):
+        assert "/Users/" not in doc
+        assert "/home/" not in doc
+        for symbol in (
+            "VoiceActivityDetector",
+            "detect_intervals",
+            "strip_silence",
+            "StreamingVAD",
+        ):
+            assert symbol in doc

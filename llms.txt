@@ -1,0 +1,86 @@
+# VAD-python
+
+> Lightweight, zero-PyTorch Spectral Voice Activity Detector (VAD) in Python (`numpy`-only). Measures 300–3000 Hz Hann-windowed rFFT band-energy ratio + adaptive RMS floor + 0.5s median smoothing. Ideal for Stage-1 audio gating before Whisper/LLMs, fast silence trimming on WAV/PCM buffers, and white-box DSP education.
+
+## Install
+
+```bash
+pip install .
+# Optional scipy WAV reader & matplotlib plotting:
+pip install ".[scipy,matplotlib]"
+```
+
+## Core API (`vad.py`, `vad_streaming.py`)
+
+### 1. Batch Detection & Silence Trimming (`VoiceActivityDetector`)
+
+```python
+from pathlib import Path
+import numpy as np
+from vad import VoiceActivityDetector
+
+# Source can be: str | Path (WAV file), np.ndarray (1D mono or 2D multi-channel), or 16-bit PCM bytes
+v = VoiceActivityDetector(
+    wave_input_filename="wav-sample.wav",  # or np.ndarray / bytes
+    sample_rate=None,                      # required when input is ndarray or bytes (e.g. 16000)
+    sample_window=0.02,                    # 20ms frame
+    sample_overlap=0.01,                   # 10ms step
+    speech_window=0.5,                     # 0.5s median filter window
+    speech_energy_threshold=0.6,           # 300-3000 Hz energy ratio threshold
+    speech_start_band=300,                 # Hz
+    speech_end_band=3000,                  # Hz
+    energy_threshold=1e-4,                 # minimum RMS gate
+)
+
+# Return [{"speech_begin": float, "speech_end": float, "start_sample": int, "end_sample": int}, ...]
+intervals = v.detect_intervals()
+
+# Extract list of 1D float64 numpy arrays for each speech segment
+segments = v.extract_speech_segments(pad_ms=20.0)
+
+# Concatenate speech and optionally write a 16-bit PCM mono WAV file
+cleaned_audio = v.strip_silence(output_path="cleaned.wav", pad_ms=20.0)
+
+# Legacy-compatible 2-step API
+raw_windows = v.detect_speech()  # shape (N, 2): [sample_start, is_speech]
+labels = v.convert_windows_to_readable_labels(raw_windows)  # alias: convert_windows_to_readible_labels
+```
+
+### 2. Real-Time Stream Gating (`StreamingVAD`)
+
+```python
+import numpy as np
+from vad import StreamingVAD
+
+streamer = StreamingVAD(sample_rate=16000, speech_window=0.1)
+
+# Feed arbitrary-sized chunk (ndarray or 16-bit PCM bytes); returns speech_begin / speech_end events
+events = streamer.process_chunk(np.zeros(1600, dtype=np.float32))
+
+# Or evaluate a single frame; returns {"is_speech", "raw_is_speech", "speech_ratio", "rms", "event", ...}
+frame_info = streamer.process_frame(np.zeros(320, dtype=np.float32))
+
+# Close any trailing speech segment at end of stream
+final_interval = streamer.flush()
+streamer.reset()
+```
+
+### 3. CLI (`detectVoiceInWave.py` / `vad-python`)
+
+```bash
+vad-python INPUT.wav [OUTPUT.json] \
+  --threshold 0.6 \
+  --energy-threshold 0.0001 \
+  --speech-window 0.5 \
+  --output-wav cleaned.wav \
+  --pad-ms 20.0 \
+  --plot
+```
+
+## Key Files
+
+- [vad.py](vad.py): `VoiceActivityDetector` batch detector, PCM normalizer, silence trimmer, and lazy plotting.
+- [vad_streaming.py](vad_streaming.py): `StreamingVAD` real-time ring-buffer detector.
+- [detectVoiceInWave.py](detectVoiceInWave.py): CLI entry point (`vad-python`).
+- [README.md](README.md): Quickstart, DSP pipeline steps, and Whisper/voice-agent examples.
+- [architecture.md](architecture.md): Module boundaries and DSP data flow.

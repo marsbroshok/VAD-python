@@ -114,9 +114,9 @@ from vad import VoiceActivityDetector
 v = VoiceActivityDetector(
     "wav-sample.wav",
     speech_energy_threshold=0.6,  # 60% energy in voice band
-    speech_start_band=300,        # Hz
-    speech_end_band=3000,         # Hz
-    speech_window=0.5,            # 0.5s median smoothing
+    speech_start_band=300,  # Hz
+    speech_end_band=3000,  # Hz
+    speech_window=0.5,  # 0.5s median smoothing
 )
 v.plot_detected_speech_regions()
 ```
