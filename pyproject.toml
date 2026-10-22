@@ -66,7 +66,7 @@ show_missing = true
 skip_empty = true
 
 [tool.ruff]
-line-length = 88
+line-length = 80
 target-version = "py310"
 
 [tool.ruff.lint]

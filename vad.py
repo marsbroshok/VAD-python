@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import importlib
-from pathlib import Path
 import wave
+from pathlib import Path
 
 import numpy as np
 
@@ -13,13 +13,20 @@ try:
 except ImportError:  # pragma: no cover
     wf = None  # type: ignore[assignment]
 
+__all__ = ["VoiceActivityDetector", "StreamingVAD"]
+
 
 class VoiceActivityDetector:
-    """Use spectral band-energy ratio and RMS gating to detect voice activity."""
+    """Use spectral band-energy ratio and RMS gating to detect voice."""
 
     def __init__(
         self,
-        wave_input_filename: str | Path | np.ndarray | bytes | bytearray | memoryview,
+        wave_input_filename: str
+        | Path
+        | np.ndarray
+        | bytes
+        | bytearray
+        | memoryview,
         sample_rate: int | None = None,
         sample_window: float = 0.02,
         sample_overlap: float = 0.01,
@@ -36,7 +43,9 @@ class VoiceActivityDetector:
         self.speech_start_band = int(speech_start_band)
         self.speech_end_band = int(speech_end_band)
         self.energy_threshold = float(energy_threshold)
-        self._read_wav(wave_input_filename, sample_rate=sample_rate)._convert_to_mono()
+        self._read_wav(
+            wave_input_filename, sample_rate=sample_rate
+        )._convert_to_mono()
 
     @staticmethod
     def _read_wav_stdlib(file_path: str) -> tuple[int, np.ndarray]:
@@ -55,7 +64,9 @@ class VoiceActivityDetector:
         elif sampwidth == 4:
             data = np.frombuffer(raw_bytes, dtype="<i4").copy()
         else:
-            raise ValueError(f"Unsupported WAV sample width: {sampwidth} bytes.")
+            raise ValueError(
+                f"Unsupported WAV sample width: {sampwidth} bytes."
+            )
 
         if n_channels > 1:
             data = data.reshape(-1, n_channels)
@@ -66,7 +77,7 @@ class VoiceActivityDetector:
         wave_file: str | Path | np.ndarray | bytes | bytearray | memoryview,
         sample_rate: int | None = None,
     ) -> VoiceActivityDetector:
-        """Load audio from a file path, numpy array, or 16-bit PCM byte buffer."""
+        """Load audio from a file path, numpy array, or 16-bit PCM bytes."""
         if isinstance(wave_file, (str, Path)):
             path_str = str(wave_file)
             self.filename: str | None = path_str
@@ -82,7 +93,7 @@ class VoiceActivityDetector:
         elif isinstance(wave_file, np.ndarray):
             if sample_rate is None or int(sample_rate) <= 0:
                 raise ValueError(
-                    "A positive sample_rate must be provided for numpy.ndarray input."
+                    "A positive sample_rate is required for ndarray input."
                 )
             self.filename = None
             self.rate = int(sample_rate)
@@ -90,17 +101,19 @@ class VoiceActivityDetector:
         elif isinstance(wave_file, (bytes, bytearray, memoryview)):
             if sample_rate is None or int(sample_rate) <= 0:
                 raise ValueError(
-                    "A positive sample_rate must be provided for raw PCM bytes input."
+                    "A positive sample_rate is required for PCM bytes input."
                 )
             if len(wave_file) % 2 != 0:
                 raise ValueError(
-                    "Raw 16-bit PCM byte buffer must contain an even number of bytes."
+                    "Raw 16-bit PCM buffer must have an even number of bytes."
                 )
             self.filename = None
             self.rate = int(sample_rate)
             self.data = np.frombuffer(wave_file, dtype="<i2").copy()
         else:
-            raise TypeError(f"Unsupported audio source type: {type(wave_file)!r}")
+            raise TypeError(
+                f"Unsupported audio source type: {type(wave_file)!r}"
+            )
 
         if self.data.ndim == 1:
             self.channels = 1
@@ -114,7 +127,7 @@ class VoiceActivityDetector:
 
     @staticmethod
     def _normalize_pcm(data: np.ndarray) -> np.ndarray:
-        """Normalize integer or floating-point PCM arrays to float64 without overflow."""
+        """Normalize integer or float PCM arrays to float64 without overflow."""
         if data.dtype == np.uint8:
             return (data.astype(np.float64) - 128.0) / 128.0
         if data.dtype == np.int16:
@@ -124,25 +137,27 @@ class VoiceActivityDetector:
         return data.astype(np.float64)
 
     def _convert_to_mono(self) -> VoiceActivityDetector:
-        """Convert normalized audio data to a 1D float64 mono signal without overflow."""
+        """Convert normalized audio to a 1D float64 mono signal safely."""
         normalized = self._normalize_pcm(self.data)
         if normalized.ndim == 2:
-            self.data = np.mean(normalized, axis=1, dtype=np.float64)
+            self.data = np.asarray(
+                np.mean(normalized, axis=1, dtype=np.float64), dtype=np.float64
+            )
             self.channels = 1
         else:
             self.data = normalized
             self.channels = 1
         return self
-    
+
     def _calculate_frequencies(self, audio_data: np.ndarray) -> np.ndarray:
-        """Calculate positive FFT frequencies (excluding DC bin 0) for a frame."""
+        """Calculate positive FFT frequencies (excluding DC) for a frame."""
         if len(audio_data) <= 1:
             return np.array([], dtype=np.float64)
         data_freq = np.fft.rfftfreq(len(audio_data), 1.0 / self.rate)
         return data_freq[1:]
 
     def _calculate_amplitude(self, audio_data: np.ndarray) -> np.ndarray:
-        """Apply DC removal and Hann windowing, then return positive rFFT magnitudes."""
+        """Apply DC removal and Hann window, returning rFFT magnitudes."""
         arr = np.asarray(audio_data, dtype=np.float64)
         if len(arr) <= 1:
             return np.array([], dtype=np.float64)
@@ -152,23 +167,23 @@ class VoiceActivityDetector:
         return data_ampl[1:]
 
     def _calculate_energy(self, data: np.ndarray) -> np.ndarray:
-        """Compute spectral power (squared amplitude) for each positive frequency bin."""
+        """Compute spectral power for each positive frequency bin."""
         data_amplitude = self._calculate_amplitude(data)
         return data_amplitude**2
 
     def _znormalize_energy(self, data_energy: np.ndarray) -> np.ndarray:
-        """Z-normalize an energy vector, safely returning zeros when std is ~0."""
+        """Z-normalize an energy vector, returning zeros when std is ~0."""
         arr = np.asarray(data_energy, dtype=np.float64)
         energy_mean = np.mean(arr)
         energy_std = np.std(arr)
         if energy_std <= 1e-12:
             return np.zeros_like(arr, dtype=np.float64)
-        return (arr - energy_mean) / energy_std
+        return np.asarray((arr - energy_mean) / energy_std, dtype=np.float64)
 
     def _connect_energy_with_frequencies(
         self, data_freq: np.ndarray, data_energy: np.ndarray
     ) -> dict[float, float]:
-        """Map positive frequency bins (Hz) to their corresponding spectral energy."""
+        """Map positive frequency bins (Hz) to their spectral energy."""
         energy_freq: dict[float, float] = {}
         for i, freq in enumerate(data_freq):
             key = float(abs(freq))
@@ -176,7 +191,9 @@ class VoiceActivityDetector:
                 energy_freq[key] = float(data_energy[i] * 2.0)
         return energy_freq
 
-    def _calculate_normalized_energy(self, data: np.ndarray) -> dict[float, float]:
+    def _calculate_normalized_energy(
+        self, data: np.ndarray
+    ) -> dict[float, float]:
         """Compute frequency-to-energy mapping for a single audio frame."""
         data_freq = self._calculate_frequencies(data)
         data_energy = self._calculate_energy(data)
@@ -194,7 +211,7 @@ class VoiceActivityDetector:
             if start_band < f < end_band:
                 sum_energy += float(val)
         return sum_energy
-    
+
     def _median_filter(self, x: np.ndarray, k: int) -> np.ndarray:
         """Apply a 1D edge-padded median filter of odd kernel length k."""
         if k % 2 != 1:
@@ -206,10 +223,12 @@ class VoiceActivityDetector:
         k2 = (k - 1) // 2
         padded = np.pad(x.astype(np.float64, copy=False), k2, mode="edge")
         windows = np.lib.stride_tricks.sliding_window_view(padded, k)
-        return np.median(windows, axis=1)
+        return np.asarray(np.median(windows, axis=1), dtype=np.float64)
 
-    def _smooth_speech_detection(self, detected_windows: np.ndarray) -> np.ndarray:
-        """Smooth binary frame classifications using a median filter over speech_window."""
+    def _smooth_speech_detection(
+        self, detected_windows: np.ndarray
+    ) -> np.ndarray:
+        """Smooth binary frame flags with a median filter over speech_window."""
         if len(detected_windows) == 0:
             return np.array([], dtype=np.float64)
         median_window = max(1, int(self.speech_window / self.sample_overlap))
@@ -221,7 +240,7 @@ class VoiceActivityDetector:
     def convert_windows_to_readible_labels(
         self, detected_windows: np.ndarray
     ) -> list[dict[str, float | int]]:
-        """Convert frame-level [sample_start, is_speech] rows into speech intervals.
+        """Convert [sample_start, is_speech] rows into speech intervals.
 
         Preserves the historical method spelling ('readible') for backward
         compatibility while closing trailing speech segments and including both
@@ -275,7 +294,7 @@ class VoiceActivityDetector:
     def convert_windows_to_readable_labels(
         self, detected_windows: np.ndarray
     ) -> list[dict[str, float | int]]:
-        """Convert frame-level [sample_start, is_speech] rows into speech intervals."""
+        """Convert [sample_start, is_speech] rows into speech intervals."""
         return self.convert_windows_to_readible_labels(detected_windows)
 
     def detect_intervals(self) -> list[dict[str, float | int]]:
@@ -284,7 +303,7 @@ class VoiceActivityDetector:
         return self.convert_windows_to_readable_labels(detected_windows)
 
     def extract_speech_segments(self, pad_ms: float = 0.0) -> list[np.ndarray]:
-        """Extract audio waveform slices corresponding to detected speech intervals.
+        """Extract audio waveform slices for each detected speech interval.
 
         Args:
             pad_ms: Optional padding in milliseconds to include before and after
@@ -316,7 +335,7 @@ class VoiceActivityDetector:
         output_path: str | Path | None = None,
         pad_ms: float = 20.0,
     ) -> np.ndarray:
-        """Concatenate detected speech segments and optionally write a cleaned WAV file.
+        """Concatenate speech segments and optionally write a cleaned WAV file.
 
         Args:
             output_path: Optional file path to write 16-bit PCM mono WAV output.
@@ -327,14 +346,16 @@ class VoiceActivityDetector:
         """
         segments = self.extract_speech_segments(pad_ms=pad_ms)
         if segments:
-            trimmed = np.concatenate(segments)
+            trimmed: np.ndarray = np.asarray(
+                np.concatenate(segments), dtype=np.float64
+            )
         else:
             trimmed = np.array([], dtype=np.float64)
 
         if output_path is not None:
-            pcm_int16 = np.clip(np.round(trimmed * 32767.0), -32768, 32767).astype(
-                "<i2"
-            )
+            pcm_int16 = np.clip(
+                np.round(trimmed * 32767.0), -32768, 32767
+            ).astype("<i2")
             with wave.open(str(output_path), "wb") as wav_out:
                 wav_out.setnchannels(1)
                 wav_out.setsampwidth(2)
@@ -344,7 +365,7 @@ class VoiceActivityDetector:
         return trimmed
 
     def plot_detected_speech_regions(self) -> VoiceActivityDetector:
-        """Perform speech detection and plot the waveform with speech regions overlaid."""
+        """Detect speech and plot the waveform with speech regions overlaid."""
         plt = importlib.import_module("matplotlib.pyplot")
         data = self.data
         detected_windows = self.detect_speech()
@@ -362,13 +383,13 @@ class VoiceActivityDetector:
         plt.plot(data_speech)
         plt.show()
         return self
-       
+
     def detect_speech(self) -> np.ndarray:
-        """Detect speech windows using vectorized Hann-windowed rFFT and RMS gating.
+        """Detect speech windows using vectorized Hann-windowed rFFT and RMS.
 
         Returns:
-            2D numpy array of shape (num_windows, 2) where column 0 is the window
-            start sample index and column 1 is the smoothed binary speech flag
+            2D numpy array of shape (num_windows, 2) where column 0 is the
+            window start sample index and column 1 is the smoothed binary flag
             (1.0 for speech, 0.0 for non-speech).
         """
         data = self.data
@@ -383,10 +404,12 @@ class VoiceActivityDetector:
             sample_starts = np.array([0], dtype=np.float64)
             frames = data[np.newaxis, :]
         else:
-            all_windows = np.lib.stride_tricks.sliding_window_view(data, sample_window)
+            all_windows = np.lib.stride_tricks.sliding_window_view(
+                data, sample_window
+            )
             frames = all_windows[::sample_overlap]
-            sample_starts = (
-                np.arange(len(frames), dtype=np.float64) * float(sample_overlap)
+            sample_starts = np.arange(len(frames), dtype=np.float64) * float(
+                sample_overlap
             )
 
         frame_len = frames.shape[1]
@@ -394,7 +417,7 @@ class VoiceActivityDetector:
         frame_rms = np.sqrt(np.mean(frames_ac**2, axis=1))
 
         if frame_len <= 1:
-            speech_ratio = np.zeros(len(frames), dtype=np.float64)
+            speech_ratio: np.ndarray = np.zeros(len(frames), dtype=np.float64)
         else:
             hann = np.hanning(frame_len)
             spectrum = np.abs(np.fft.rfft(frames_ac * hann, axis=1))[:, 1:] ** 2
@@ -405,7 +428,10 @@ class VoiceActivityDetector:
             voice_energy = np.sum(spectrum[:, band_mask], axis=1)
             full_energy = np.sum(spectrum, axis=1)
             safe_denom = np.where(full_energy > 1e-12, full_energy, 1.0)
-            speech_ratio = np.where(full_energy > 1e-12, voice_energy / safe_denom, 0.0)
+            speech_ratio = np.asarray(
+                np.where(full_energy > 1e-12, voice_energy / safe_denom, 0.0),
+                dtype=np.float64,
+            )
 
         if self.energy_threshold > 0.0 and len(frame_rms) > 0:
             adaptive_floor = min(
@@ -414,12 +440,14 @@ class VoiceActivityDetector:
             )
             rms_gate = max(self.energy_threshold, adaptive_floor)
             is_speech = (
-                (speech_ratio > self.speech_energy_threshold) & (frame_rms > rms_gate)
+                (speech_ratio > self.speech_energy_threshold)
+                & (frame_rms > rms_gate)
             ).astype(np.float64)
         else:
-            is_speech = (speech_ratio > self.speech_energy_threshold).astype(np.float64)
+            is_speech = (speech_ratio > self.speech_energy_threshold).astype(
+                np.float64
+            )
 
         detected_windows = np.column_stack((sample_starts, is_speech))
         detected_windows[:, 1] = self._smooth_speech_detection(detected_windows)
         return detected_windows
- 

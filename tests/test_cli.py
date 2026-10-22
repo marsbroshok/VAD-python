@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,7 +13,7 @@ import detectVoiceInWave
 
 
 def test_cli_positional_args_and_save_json(tmp_path: Path) -> None:
-    """Running main([input, output]) writes speech intervals JSON to outputfile."""
+    """Running main([input, output]) writes speech intervals JSON to file."""
     sample_wav = Path(__file__).resolve().parent.parent / "wav-sample.wav"
     out_json = tmp_path / "results.json"
 
@@ -33,7 +33,7 @@ def test_cli_positional_args_and_save_json(tmp_path: Path) -> None:
 def test_cli_optional_flags_threshold_speech_window_output_wav_and_plot(
     tmp_path: Path,
 ) -> None:
-    """CLI supports --threshold, --speech-window, --output-wav, and --plot flags."""
+    """CLI supports --threshold, --speech-window, --output-wav, and --plot."""
     sample_wav = Path(__file__).resolve().parent.parent / "wav-sample.wav"
     out_json = tmp_path / "custom.json"
     out_wav = tmp_path / "stripped.wav"

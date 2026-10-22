@@ -13,7 +13,7 @@ from vad import VoiceActivityDetector
 
 
 def test_digital_silence_zeros_and_dc_no_warnings() -> None:
-    """Digital silence (zeros or constant DC) yields 0.0 flags and zero RuntimeWarnings."""
+    """Digital silence (zeros or DC) yields 0.0 flags and zero warnings."""
     sr = 16000
     zeros = np.zeros(sr, dtype=np.float64)
     constant_dc = np.full(sr, 0.42, dtype=np.float64)
@@ -26,7 +26,9 @@ def test_digital_silence_zeros_and_dc_no_warnings() -> None:
         det_dc = VoiceActivityDetector(constant_dc, sample_rate=sr)
         win_dc = det_dc.detect_speech()
 
-    runtime_warnings = [w for w in caught if issubclass(w.category, RuntimeWarning)]
+    runtime_warnings = [
+        w for w in caught if issubclass(w.category, RuntimeWarning)
+    ]
     assert len(runtime_warnings) == 0
     assert win_zeros.shape[0] > 0
     assert np.all(win_zeros[:, 1] == 0.0)
@@ -34,18 +36,20 @@ def test_digital_silence_zeros_and_dc_no_warnings() -> None:
 
 
 def test_quiet_midband_noise_rejected_by_rms_gate() -> None:
-    """Quiet 1000 Hz tone below RMS floor is rejected despite 100% in-band ratio."""
+    """Quiet 1000 Hz tone below RMS floor is rejected despite 100% ratio."""
     sr = 16000
     t = np.arange(sr, dtype=np.float64) / sr
     quiet_sine = 5e-5 * np.sin(2.0 * np.pi * 1000.0 * t)
 
-    detector = VoiceActivityDetector(quiet_sine, sample_rate=sr, energy_threshold=1e-4)
+    detector = VoiceActivityDetector(
+        quiet_sine, sample_rate=sr, energy_threshold=1e-4
+    )
     windows = detector.detect_speech()
     assert np.all(windows[:, 1] == 0.0)
 
 
 def test_adaptive_rms_gate_rejects_background_hum() -> None:
-    """Adaptive RMS floor rejects faint in-band background hum while preserving loud speech."""
+    """Adaptive RMS floor rejects faint hum while preserving loud speech."""
     sr = 16000
     t = np.arange(sr * 2, dtype=np.float64) / sr
     signal = 0.005 * np.sin(2.0 * np.pi * 1000.0 * t)
@@ -62,7 +66,7 @@ def test_adaptive_rms_gate_rejects_background_hum() -> None:
 
 
 def test_synthetic_voice_band_vs_out_of_band_sine() -> None:
-    """1000 Hz sine is detected as speech; 100 Hz and 5000 Hz sines are rejected."""
+    """1000 Hz sine is detected; 100 Hz and 5000 Hz sines are rejected."""
     sr = 16000
     t = np.arange(sr, dtype=np.float64) / sr
 
@@ -80,7 +84,7 @@ def test_synthetic_voice_band_vs_out_of_band_sine() -> None:
 
 
 def test_white_box_helper_methods() -> None:
-    """White-box helper methods compute frequencies, Hann-windowed energy, and znorm safely."""
+    """White-box helper methods compute frequencies, energy, and znorm."""
     sr = 16000
     t = np.arange(320, dtype=np.float64) / sr
     frame = 0.5 * np.sin(2.0 * np.pi * 1000.0 * t)
@@ -108,24 +112,34 @@ def test_white_box_helper_methods() -> None:
     )
     assert dup_freq == {100.0: 4.0}
 
-    det_empty = VoiceActivityDetector(np.array([], dtype=np.float64), sample_rate=sr)
+    det_empty = VoiceActivityDetector(
+        np.array([], dtype=np.float64), sample_rate=sr
+    )
     assert det_empty.detect_speech().shape == (0, 2)
 
-    det_one = VoiceActivityDetector(np.array([0.5], dtype=np.float64), sample_rate=10)
+    det_one = VoiceActivityDetector(
+        np.array([0.5], dtype=np.float64), sample_rate=10
+    )
     assert det_one.detect_speech().shape == (1, 2)
 
-    det_no_rms = VoiceActivityDetector(frame, sample_rate=sr, energy_threshold=0.0)
+    det_no_rms = VoiceActivityDetector(
+        frame, sample_rate=sr, energy_threshold=0.0
+    )
     assert det_no_rms.detect_speech().shape == (1, 2)
 
 
 def test_performance_benchmark_1min_16khz_under_50ms() -> None:
-    """Vectorized detect_speech processes 1 minute of 16 kHz mono audio in <50ms."""
+    """Vectorized detect_speech processes 1 min of 16 kHz audio in <50ms."""
     sr = 16000
     rng = np.random.default_rng(42)
     t = np.arange(sr * 60, dtype=np.float64) / sr
     audio = 0.001 * rng.standard_normal(sr * 60)
-    audio[sr * 10 : sr * 25] += 0.4 * np.sin(2.0 * np.pi * 800.0 * t[sr * 10 : sr * 25])
-    audio[sr * 35 : sr * 50] += 0.4 * np.sin(2.0 * np.pi * 1200.0 * t[sr * 35 : sr * 50])
+    audio[sr * 10 : sr * 25] += 0.4 * np.sin(
+        2.0 * np.pi * 800.0 * t[sr * 10 : sr * 25]
+    )
+    audio[sr * 35 : sr * 50] += 0.4 * np.sin(
+        2.0 * np.pi * 1200.0 * t[sr * 35 : sr * 50]
+    )
 
     detector = VoiceActivityDetector(audio, sample_rate=sr)
     # Warm up once
@@ -141,14 +155,16 @@ def test_performance_benchmark_1min_16khz_under_50ms() -> None:
 
 @given(
     st.lists(
-        st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False),
+        st.floats(
+            min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False
+        ),
         min_size=400,
         max_size=2000,
     )
 )
 @settings(max_examples=40)
 def test_property_detect_speech_output_invariants(samples: list[float]) -> None:
-    """detect_speech always returns finite (N, 2) array with binary {0.0, 1.0} flags."""
+    """detect_speech returns finite (N, 2) array with {0.0, 1.0} flags."""
     arr = np.array(samples, dtype=np.float64)
     detector = VoiceActivityDetector(arr, sample_rate=8000, speech_window=0.05)
     windows = detector.detect_speech()

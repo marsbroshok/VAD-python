@@ -1,12 +1,12 @@
-"""CLI entrypoint to analyze WAV files, save speech intervals, and strip silence."""
+"""CLI entrypoint to analyze WAV files, save speech intervals, and trim."""
 
 from __future__ import annotations
 
 import argparse
-from collections.abc import Sequence
 import json
-from pathlib import Path
 import sys
+from collections.abc import Sequence
+from pathlib import Path
 
 from vad import VoiceActivityDetector
 
@@ -14,7 +14,7 @@ from vad import VoiceActivityDetector
 def save_to_file(
     data: list[dict[str, float | int]], filename: str | Path
 ) -> None:
-    """Serialize detected speech intervals as JSON to the specified file path."""
+    """Serialize detected speech intervals as JSON to the target file path."""
     with open(filename, "w", encoding="utf-8") as fp:
         json.dump(data, fp)
 
@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="OUTPUTFILE",
         nargs="?",
         default=None,
-        help="Optional path to output JSON file to save detected speech intervals.",
+        help="Optional path to output JSON file for detected speech intervals.",
     )
     parser.add_argument(
         "--threshold",
@@ -84,7 +84,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     input_path = Path(args.inputfile)
     if not input_path.is_file():
-        print(f"Error: Input WAV file not found: {args.inputfile}", file=sys.stderr)
+        print(
+            f"Error: Input WAV file not found: {args.inputfile}",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
     detector = VoiceActivityDetector(

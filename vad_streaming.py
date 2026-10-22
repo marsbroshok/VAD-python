@@ -8,7 +8,7 @@ import numpy as np
 
 
 class StreamingVAD:
-    """Real-time spectral Voice Activity Detector with ring-buffer hangover smoothing."""
+    """Real-time spectral VAD with ring-buffer hangover smoothing."""
 
     def __init__(
         self,
@@ -23,9 +23,13 @@ class StreamingVAD:
     ) -> None:
         if int(sample_rate) <= 0:
             raise ValueError("sample_rate must be a positive integer.")
-        if sample_window <= 0.0 or sample_overlap <= 0.0 or speech_window <= 0.0:
+        if (
+            sample_window <= 0.0
+            or sample_overlap <= 0.0
+            or speech_window <= 0.0
+        ):
             raise ValueError(
-                "sample_window, sample_overlap, and speech_window must be positive."
+                "Sample window, overlap, and speech window must be positive."
             )
 
         self.sample_rate = int(sample_rate)
@@ -37,9 +41,15 @@ class StreamingVAD:
         self.speech_end_band = int(speech_end_band)
         self.energy_threshold = float(energy_threshold)
 
-        self.frame_samples = max(2, int(round(self.sample_rate * self.sample_window)))
-        self.step_samples = max(1, int(round(self.sample_rate * self.sample_overlap)))
-        history_len = max(1, int(round(self.speech_window / self.sample_overlap)))
+        self.frame_samples = max(
+            2, int(round(self.sample_rate * self.sample_window))
+        )
+        self.step_samples = max(
+            1, int(round(self.sample_rate * self.sample_overlap))
+        )
+        history_len = max(
+            1, int(round(self.speech_window / self.sample_overlap))
+        )
         if history_len % 2 == 0:
             history_len += 1
         self.history_len = history_len
@@ -74,9 +84,11 @@ class StreamingVAD:
         if isinstance(chunk, (bytes, bytearray, memoryview)):
             if len(chunk) % 2 != 0:
                 raise ValueError(
-                    "Raw 16-bit PCM byte buffer must contain an even number of bytes."
+                    "Raw 16-bit PCM buffer must have an even number of bytes."
                 )
-            arr: np.ndarray = np.frombuffer(chunk, dtype="<i2").astype(np.float64) / 32768.0
+            arr: np.ndarray = (
+                np.frombuffer(chunk, dtype="<i2").astype(np.float64) / 32768.0
+            )
         elif isinstance(chunk, np.ndarray):
             if chunk.dtype == np.uint8:
                 arr = (chunk.astype(np.float64) - 128.0) / 128.0
@@ -92,13 +104,17 @@ class StreamingVAD:
         if arr.ndim == 1:
             return arr
         if arr.ndim == 2:
-            return np.mean(arr, axis=1, dtype=np.float64)
-        raise ValueError(f"Audio chunk must be 1D or 2D array, got {arr.ndim}D.")
+            return np.asarray(
+                np.mean(arr, axis=1, dtype=np.float64), dtype=np.float64
+            )
+        raise ValueError(
+            f"Audio chunk must be 1D or 2D array, got {arr.ndim}D."
+        )
 
     def _evaluate_frame_array(
         self, frame: np.ndarray, sample_index: int
     ) -> dict[str, float | int | bool | str | None | dict[str, float | int]]:
-        """Evaluate a 1D mono float64 frame and update ring-buffer speech state."""
+        """Evaluate a 1D float64 frame and update ring-buffer speech state."""
         n = len(frame)
         if n <= 1:
             rms = 0.0
@@ -124,7 +140,8 @@ class StreamingVAD:
                 speech_ratio = voice_energy / full_energy
 
         raw_is_speech = bool(
-            speech_ratio > self.speech_energy_threshold and rms > self.energy_threshold
+            speech_ratio > self.speech_energy_threshold
+            and rms > self.energy_threshold
         )
         self._history.append(1 if raw_is_speech else 0)
         smoothed_speech = sum(self._history) > (len(self._history) // 2)
@@ -168,7 +185,7 @@ class StreamingVAD:
     def process_frame(
         self, frame: np.ndarray | bytes | bytearray | memoryview
     ) -> dict[str, float | int | bool | str | None | dict[str, float | int]]:
-        """Process a single audio frame immediately and return state diagnostics."""
+        """Process a single audio frame and return state diagnostics."""
         mono = self._normalize_chunk(frame)
         sample_index = self._buffer_start_sample
         self._buffer_start_sample += max(1, len(mono))
@@ -177,7 +194,7 @@ class StreamingVAD:
     def process_chunk(
         self, chunk: np.ndarray | bytes | bytearray | memoryview
     ) -> list[dict[str, float | int | str]]:
-        """Append an arbitrary-length audio chunk and return any transition events."""
+        """Append an audio chunk and return any speech transition events."""
         mono = self._normalize_chunk(chunk)
         if len(mono) == 0:
             return []
@@ -203,15 +220,19 @@ class StreamingVAD:
                         "start_sample": win_start,
                     }
                 )
-            elif res["event"] == "speech_end" and isinstance(res["interval"], dict):
-                interval_event: dict[str, float | int | str] = {"event": "speech_end"}
+            elif res["event"] == "speech_end" and isinstance(
+                res["interval"], dict
+            ):
+                interval_event: dict[str, float | int | str] = {
+                    "event": "speech_end"
+                }
                 interval_event.update(res["interval"])
                 events.append(interval_event)
 
         return events
 
     def flush(self) -> dict[str, float | int] | None:
-        """Close and return any active speech interval at the end of the audio stream."""
+        """Close and return any active speech interval at end of stream."""
         total_samples = self._buffer_start_sample + len(self._sample_buffer)
         self._sample_buffer = np.array([], dtype=np.float64)
         self._buffer_start_sample = total_samples

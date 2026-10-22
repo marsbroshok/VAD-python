@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import wave
+from pathlib import Path
 
 import numpy as np
 
@@ -11,7 +11,7 @@ from vad import VoiceActivityDetector
 
 
 def test_extract_speech_segments_and_strip_silence(tmp_path: Path) -> None:
-    """extract_speech_segments and strip_silence isolate speech bursts and write WAV."""
+    """extract_speech_segments and strip_silence isolate speech and save WAV."""
     sr = 16000
     t = np.arange(sr * 3, dtype=np.float64) / sr
     # 3s audio: speech in [0.5s, 1.2s] and [2.0s, 2.7s], silence elsewhere
@@ -47,8 +47,10 @@ def test_extract_speech_segments_and_strip_silence(tmp_path: Path) -> None:
         assert wf_in.getnframes() == len(trimmed_padded)
 
 
-def test_strip_silence_on_pure_silence_and_overlapping_padding(tmp_path: Path) -> None:
-    """strip_silence handles pure silence and merges overlapping padded intervals."""
+def test_strip_silence_on_pure_silence_and_overlapping_padding(
+    tmp_path: Path,
+) -> None:
+    """strip_silence handles pure silence and merges overlapping padding."""
     sr = 16000
     silent = np.zeros(sr, dtype=np.float64)
     det_silent = VoiceActivityDetector(silent, sample_rate=sr)
@@ -59,7 +61,7 @@ def test_strip_silence_on_pure_silence_and_overlapping_padding(tmp_path: Path) -
     assert len(trimmed_silent) == 0
     assert out_silent.exists()
 
-    # Two speech segments separated by a 100ms pause; with pad_ms=100.0 they merge
+    # Two speech segments 150ms apart; with pad_ms=150.0 they merge into one
     t = np.arange(sr * 2, dtype=np.float64) / sr
     audio = np.zeros(sr * 2, dtype=np.float64)
     audio[int(sr * 0.2) : int(sr * 0.7)] = 0.5 * np.sin(

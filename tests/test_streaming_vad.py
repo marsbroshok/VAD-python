@@ -13,7 +13,7 @@ import vad
 
 
 def test_streaming_vad_exported_and_frame_by_frame() -> None:
-    """StreamingVAD is exported from vad and vad_streaming and detects frame transitions."""
+    """StreamingVAD is exported from vad and detects frame transitions."""
     from vad_streaming import StreamingVAD
 
     assert vad.StreamingVAD is StreamingVAD
@@ -53,14 +53,16 @@ def test_streaming_vad_exported_and_frame_by_frame() -> None:
 
 
 def test_streaming_vad_arbitrary_chunk_sizes_and_flush() -> None:
-    """process_chunk handles arbitrary chunk sizes, stereo/bytes inputs, and end-of-stream flush."""
+    """process_chunk handles arbitrary chunk sizes, stereo/bytes, and flush."""
     from vad_streaming import StreamingVAD
 
     sr = 16000
     t = np.arange(sr, dtype=np.float64) / sr
     # 0.3s silence, 0.4s speech, 0.3s speech until end
     audio = np.zeros(sr, dtype=np.float64)
-    audio[int(sr * 0.3) :] = 0.5 * np.sin(2.0 * np.pi * 1000.0 * t[int(sr * 0.3) :])
+    audio[int(sr * 0.3) :] = 0.5 * np.sin(
+        2.0 * np.pi * 1000.0 * t[int(sr * 0.3) :]
+    )
 
     streamer = StreamingVAD(sample_rate=sr, speech_window=0.05)
     emitted: list[dict[str, float | int | str]] = []
@@ -99,7 +101,7 @@ def test_streaming_vad_arbitrary_chunk_sizes_and_flush() -> None:
 
 
 def test_streaming_vad_validation_errors() -> None:
-    """Invalid parameters or unsupported chunk types raise ValueError / TypeError."""
+    """Invalid parameters or chunk types raise ValueError / TypeError."""
     from vad_streaming import StreamingVAD
 
     with pytest.raises(ValueError, match="sample_rate"):
@@ -127,14 +129,20 @@ def test_streaming_vad_validation_errors() -> None:
 
     custom_len_frame = np.zeros(160, dtype=np.uint8) + 128
     assert streamer.process_frame(custom_len_frame)["is_speech"] is False
-    assert streamer.process_frame(np.zeros(160, dtype=np.int16))["is_speech"] is False
-    assert streamer.process_frame(np.zeros(160, dtype=np.int32))["is_speech"] is False
+    assert (
+        streamer.process_frame(np.zeros(160, dtype=np.int16))["is_speech"]
+        is False
+    )
+    assert (
+        streamer.process_frame(np.zeros(160, dtype=np.int32))["is_speech"]
+        is False
+    )
 
 
 @given(st.integers(min_value=50, max_value=800))
 @settings(max_examples=25)
 def test_property_streaming_chunk_size_invariance(chunk_size: int) -> None:
-    """Feeding the same audio stream in any chunk_size produces identical speech intervals."""
+    """Feeding the same stream in any chunk_size yields identical intervals."""
     from vad_streaming import StreamingVAD
 
     sr = 8000
@@ -153,4 +161,6 @@ def test_property_streaming_chunk_size_invariance(chunk_size: int) -> None:
         chunk_streamer.process_chunk(audio[start : start + chunk_size])
     chunk_streamer.flush()
 
-    assert chunk_streamer.completed_intervals == ref_streamer.completed_intervals
+    assert (
+        chunk_streamer.completed_intervals == ref_streamer.completed_intervals
+    )
