@@ -1,28 +1,133 @@
-import numpy as np
-import scipy.io.wavfile as wf
-import matplotlib.pyplot as plt
+from __future__ import annotations
 
-class VoiceActivityDetector():
-    """ Use signal energy to detect voice activity in wav file """
-    
-    def __init__(self, wave_input_filename):
-        self._read_wav(wave_input_filename)._convert_to_mono()
-        self.sample_window = 0.02 #20 ms
-        self.sample_overlap = 0.01 #10ms
-        self.speech_window = 0.5 #half a second
-        self.speech_energy_threshold = 0.6 #60% of energy in voice band
-        self.speech_start_band = 300
-        self.speech_end_band = 3000
-           
-    def _read_wav(self, wave_file):
-        self.rate, self.data = wf.read(wave_file)
-        self.channels = len(self.data.shape)
-        self.filename = wave_file
+from pathlib import Path
+import wave
+
+import numpy as np
+
+try:
+    import scipy.io.wavfile as wf
+except ImportError:  # pragma: no cover
+    wf = None  # type: ignore[assignment]
+
+
+class VoiceActivityDetector:
+    """Use spectral band-energy ratio and RMS gating to detect voice activity."""
+
+    def __init__(
+        self,
+        wave_input_filename: str | Path | np.ndarray | bytes | bytearray | memoryview,
+        sample_rate: int | None = None,
+        sample_window: float = 0.02,
+        sample_overlap: float = 0.01,
+        speech_window: float = 0.5,
+        speech_energy_threshold: float = 0.6,
+        speech_start_band: int = 300,
+        speech_end_band: int = 3000,
+        energy_threshold: float = 1e-4,
+    ) -> None:
+        self.sample_window = float(sample_window)
+        self.sample_overlap = float(sample_overlap)
+        self.speech_window = float(speech_window)
+        self.speech_energy_threshold = float(speech_energy_threshold)
+        self.speech_start_band = int(speech_start_band)
+        self.speech_end_band = int(speech_end_band)
+        self.energy_threshold = float(energy_threshold)
+        self._read_wav(wave_input_filename, sample_rate=sample_rate)._convert_to_mono()
+
+    @staticmethod
+    def _read_wav_stdlib(file_path: str) -> tuple[int, np.ndarray]:
+        """Read a PCM WAV file using the Python standard-library wave module."""
+        with wave.open(file_path, "rb") as wav_in:
+            n_channels = wav_in.getnchannels()
+            sampwidth = wav_in.getsampwidth()
+            rate = wav_in.getframerate()
+            n_frames = wav_in.getnframes()
+            raw_bytes = wav_in.readframes(n_frames)
+
+        if sampwidth == 1:
+            data: np.ndarray = np.frombuffer(raw_bytes, dtype=np.uint8).copy()
+        elif sampwidth == 2:
+            data = np.frombuffer(raw_bytes, dtype="<i2").copy()
+        elif sampwidth == 4:
+            data = np.frombuffer(raw_bytes, dtype="<i4").copy()
+        else:
+            raise ValueError(f"Unsupported WAV sample width: {sampwidth} bytes.")
+
+        if n_channels > 1:
+            data = data.reshape(-1, n_channels)
+        return int(rate), data
+
+    def _read_wav(
+        self,
+        wave_file: str | Path | np.ndarray | bytes | bytearray | memoryview,
+        sample_rate: int | None = None,
+    ) -> VoiceActivityDetector:
+        """Load audio from a file path, numpy array, or 16-bit PCM byte buffer."""
+        if isinstance(wave_file, (str, Path)):
+            path_str = str(wave_file)
+            self.filename: str | None = path_str
+            if wf is not None:
+                try:
+                    rate, data = wf.read(path_str)
+                    self.rate = int(rate)
+                    self.data = np.asarray(data)
+                except ValueError:
+                    self.rate, self.data = self._read_wav_stdlib(path_str)
+            else:  # pragma: no cover
+                self.rate, self.data = self._read_wav_stdlib(path_str)
+        elif isinstance(wave_file, np.ndarray):
+            if sample_rate is None or int(sample_rate) <= 0:
+                raise ValueError(
+                    "A positive sample_rate must be provided for numpy.ndarray input."
+                )
+            self.filename = None
+            self.rate = int(sample_rate)
+            self.data = np.asarray(wave_file).copy()
+        elif isinstance(wave_file, (bytes, bytearray, memoryview)):
+            if sample_rate is None or int(sample_rate) <= 0:
+                raise ValueError(
+                    "A positive sample_rate must be provided for raw PCM bytes input."
+                )
+            if len(wave_file) % 2 != 0:
+                raise ValueError(
+                    "Raw 16-bit PCM byte buffer must contain an even number of bytes."
+                )
+            self.filename = None
+            self.rate = int(sample_rate)
+            self.data = np.frombuffer(wave_file, dtype="<i2").copy()
+        else:
+            raise TypeError(f"Unsupported audio source type: {type(wave_file)!r}")
+
+        if self.data.ndim == 1:
+            self.channels = 1
+        elif self.data.ndim == 2:
+            self.channels = int(self.data.shape[1])
+        else:
+            raise ValueError(
+                f"Audio data must be a 1D or 2D array, got {self.data.ndim}D."
+            )
         return self
-    
-    def _convert_to_mono(self):
-        if self.channels == 2 :
-            self.data = np.mean(self.data, axis=1, dtype=self.data.dtype)
+
+    @staticmethod
+    def _normalize_pcm(data: np.ndarray) -> np.ndarray:
+        """Normalize integer or floating-point PCM arrays to float64 without overflow."""
+        if data.dtype == np.uint8:
+            return (data.astype(np.float64) - 128.0) / 128.0
+        if data.dtype == np.int16:
+            return data.astype(np.float64) / 32768.0
+        if data.dtype == np.int32:
+            return data.astype(np.float64) / 2147483648.0
+        return data.astype(np.float64)
+
+    def _convert_to_mono(self) -> VoiceActivityDetector:
+        """Convert normalized audio data to a 1D float64 mono signal without overflow."""
+        normalized = self._normalize_pcm(self.data)
+        if normalized.ndim == 2:
+            self.data = np.mean(normalized, axis=1, dtype=np.float64)
+            self.channels = 1
+        else:
+            self.data = normalized
             self.channels = 1
         return self
     
