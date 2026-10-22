@@ -5,11 +5,11 @@
   - [x] Write initial smoke test verifying test runner and `wav-sample.wav` fixture loading
   - [x] Create `pyproject.toml` and update `.gitignore` for Python build/test artifacts
   - [x] Verify `pytest` execution and baseline coverage report
-- [~] Task: Fix audio loading, `uint8`/`int16` normalization, and stereo-to-mono integer overflow (`_read_wav`, `_convert_to_mono`)
-  - [ ] Write Failing Tests (Red Phase): Unit and Hypothesis property tests for stereo `int16` max-amplitude overflow (`[32767, 32767]`), `uint8` DC centering, multi-channel arrays, and `np.ndarray` / `bytes` / `Path` inputs
-  - [ ] Implement to Pass Tests (Green Phase): Refactor `_read_wav` and `_convert_to_mono` to support file paths (with `wave` fallback), `np.ndarray`, and `bytes`, converting safely without integer overflow
-  - [ ] Refactor & Verify Coverage
-- [ ] Task: Upgrade DSP engine with Hann windowing, vectorized `rfft`, zero-division guard, and RMS noise-floor gate
+- [x] Task: Fix audio loading, `uint8`/`int16` normalization, and stereo-to-mono integer overflow (`_read_wav`, `_convert_to_mono`) 540229f
+  - [x] Write Failing Tests (Red Phase): Unit and Hypothesis property tests for stereo `int16` max-amplitude overflow (`[32767, 32767]`), `uint8` DC centering, multi-channel arrays, and `np.ndarray` / `bytes` / `Path` inputs
+  - [x] Implement to Pass Tests (Green Phase): Refactor `_read_wav` and `_convert_to_mono` to support file paths (with `wave` fallback), `np.ndarray`, and `bytes`, converting safely without integer overflow
+  - [x] Refactor & Verify Coverage
+- [~] Task: Upgrade DSP engine with Hann windowing, vectorized `rfft`, zero-division guard, and RMS noise-floor gate
   - [ ] Write Failing Tests (Red Phase): Tests for digital silence (all zeros / constant DC producing `0.0` ratio with zero `RuntimeWarning`s), quiet mid-band noise rejection via RMS gate, 300–3000 Hz synthetic sine wave detection, and performance benchmark (<50ms per minute of audio)
   - [ ] Implement to Pass Tests (Green Phase): Implement Hann windowing, vectorized `rfft` band-energy ratio, safe denominator guard, and RMS noise-floor gating in `VoiceActivityDetector`
   - [ ] Refactor & Verify Coverage
