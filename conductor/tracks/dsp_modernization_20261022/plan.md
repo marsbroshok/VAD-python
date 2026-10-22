@@ -31,11 +31,11 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md) 6b14568
 
 ## Phase 3: CLI Modernization, Documentation & Final Quality Gate
-- [~] Task: Modernize `detectVoiceInWave.py` CLI and console script entrypoint
-  - [ ] Write Failing Tests (Red Phase): CLI integration tests testing positional `INPUTWAVE OUTPUTFILE` args, `--threshold`, `--speech-window`, `--output-wav`, and error handling on missing files
-  - [ ] Implement to Pass Tests (Green Phase): Enhance `detectVoiceInWave.py` with `main()` entrypoint and new optional CLI flags while keeping full backward compatibility
-  - [ ] Refactor & Verify Coverage
-- [ ] Task: Revitalize `README.md` and synchronize `test.json`
+- [x] Task: Modernize `detectVoiceInWave.py` CLI and console script entrypoint 3d1b13f
+  - [x] Write Failing Tests (Red Phase): CLI integration tests testing positional `INPUTWAVE OUTPUTFILE` args, `--threshold`, `--speech-window`, `--output-wav`, and error handling on missing files
+  - [x] Implement to Pass Tests (Green Phase): Enhance `detectVoiceInWave.py` with `main()` entrypoint and new optional CLI flags while keeping full backward compatibility
+  - [x] Refactor & Verify Coverage
+- [~] Task: Revitalize `README.md` and synchronize `test.json`
   - [ ] Write Failing Tests (Red Phase): Documentation & interface parity test verifying CLI `--help` flags and `README.md` code examples execute cleanly
   - [ ] Implement to Pass Tests (Green Phase): Rewrite `README.md` (removing shutdown notice, adding quickstart, streaming & silence-trimming examples, DSP explanation, and realistic comparison) and update `test.json`
   - [ ] Refactor & Verify Coverage
