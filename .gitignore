@@ -1,2 +1,5 @@
 
 *.pyc
+
+# Git Worktrees
+.worktrees/
